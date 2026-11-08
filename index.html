@@ -1,1 +1,137 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>תקציב אישי</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#081426;color:#f4f7fc;font-family:Arial,sans-serif;padding-bottom:75px}
+header{padding:22px;background:#101f35;border-bottom:1px solid #263852}
+h1{margin:0;color:#c5f36b}
+main{max-width:850px;margin:auto;padding:16px}
+.card{background:#14243a;border:1px solid #293d57;border-radius:16px;padding:17px;margin-bottom:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.stat{flex:1;min-width:130px}
+.stat strong{display:block;font-size:24px;margin-top:10px}
+.green{color:#c5f36b}.red{color:#ff7777}
+button,input,select{font:inherit;border-radius:10px;padding:12px;border:1px solid #40536b}
+input,select{background:#0c192c;color:white;width:100%;margin:6px 0}
+button{background:#c5f36b;color:#102018;font-weight:bold;cursor:pointer}
+nav{position:fixed;bottom:0;left:0;right:0;background:#101f35;display:flex;justify-content:space-around;padding:12px 3px}
+nav button{font-size:12px;padding:10px 7px}
+section{display:none}
+section.active{display:block}
+label{display:block;margin-top:8px;color:#b8c6d9}
+</style>
+</head>
+<body>
+<header><h1>תקציב אישי</h1><p>השליטה בכסף מתחילה כאן</p></header>
+<main>
+<section id="home" class="active">
+<h2>דוח חודשי</h2>
+<div class="card">
+<label>בחירת חודש</label>
+<input type="month" id="month">
+</div>
+<div class="row">
+<div class="card stat">הכנסות<strong class="green" id="income">₪0</strong></div>
+<div class="card stat">הוצאות<strong class="red" id="expense">₪0</strong></div>
+</div>
+<div class="card">יתרה חודשית<strong id="balance">₪0</strong></div>
+<div class="card">תקציב חודשי<strong id="budget">₪0</strong></div>
+<div class="card"><h3>הוצאות אחרונות</h3><div id="recent">אין עדיין תנועות</div></div>
+</section>
 
+<section id="add">
+<h2>הוספת תנועה</h2>
+<div class="card">
+<label>סוג התנועה</label>
+<select id="type"><option value="expense">הוצאה</option><option value="income">הכנסה</option></select>
+<label>סכום בשקלים</label><input id="amount" type="number" min="0.01" step="0.01" placeholder="לדוגמה 150">
+<label>קטגוריה</label><select id="category"><option>מזון</option><option>דיור</option><option>תחבורה</option><option>בילויים</option><option>משכורת</option><option>אחר</option></select>
+<label>תאריך</label><input id="date" type="date">
+<label>הערה</label><input id="note" placeholder="הערה (לא חובה)">
+<button onclick="addTransaction()">שמירת תנועה</button>
+</div>
+</section>
+
+<section id="categories">
+<h2>קטגוריות</h2>
+<div class="card">
+<input id="newCategory" placeholder="שם קטגוריה חדשה">
+<button onclick="addCategory()">הוספת קטגוריה</button>
+<div id="categoryList"></div>
+</div>
+</section>
+
+<section id="settings">
+<h2>הגדרות</h2>
+<div class="card">
+<label>תקציב חודשי קבוע</label>
+<input id="budgetInput" type="number" placeholder="סכום בשקלים">
+<button onclick="saveBudget()">שמירת תקציב</button>
+</div>
+<div class="card">
+<button onclick="exportData()">הורדת גיבוי JSON</button>
+<p>אפשר לשמור עותק של הנתונים במכשיר.</p>
+<input type="file" id="restoreFile" accept=".json">
+<button onclick="restoreData()">שחזור גיבוי</button>
+</div>
+</section>
+</main>
+
+<nav>
+<button onclick="show('home')">חודשי</button>
+<button onclick="show('add')">הוספה</button>
+<button onclick="show('categories')">קטגוריות</button>
+<button onclick="show('settings')">הגדרות</button>
+</nav>
+
+<script>
+const KEY='personal-budget-v1';
+let data=JSON.parse(localStorage.getItem(KEY)||'{"transactions":[],"categories":["מזון","דיור","תחבורה","בילויים","משכורת","אחר"],"budget":0}');
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}
+function money(n){return '₪'+Number(n).toLocaleString('he-IL',{maximumFractionDigits:2})}
+function show(id){document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');render()}
+function addTransaction(){
+let amount=Number($('amount').value);
+if(!amount||amount<=0){alert('נא להזין סכום תקין');return}
+data.transactions.push({id:Date.now(),type:$('type').value,amount,category:$('category').value,date:$('date').value||new Date().toISOString().slice(0,10),note:$('note').value});
+$('amount').value='';$('note').value='';save();show('home')
+}
+function addCategory(){
+let name=$('newCategory').value.trim();if(!name)return;
+if(!data.categories.includes(name))data.categories.push(name);
+$('newCategory').value='';save()
+}
+function saveBudget(){data.budget=Math.max(0,Number($('budgetInput').value)||0);save()}
+function render(){
+let m=$('month').value||new Date().toISOString().slice(0,7);
+let tx=data.transactions.filter(t=>t.date.startsWith(m));
+let inc=tx.filter(t=>t.type==='income').reduce((a,t)=>a+t.amount,0);
+let exp=tx.filter(t=>t.type==='expense').reduce((a,t)=>a+t.amount,0);
+$('income').textContent=money(inc);$('expense').textContent=money(exp);
+$('balance').textContent=money(inc-exp);$('budget').textContent=money(data.budget);
+$('recent').innerHTML=tx.slice().reverse().map(t=>'<p>'+t.date+' · '+t.category+' · '+money(t.amount)+' · '+(t.type==='income'?'הכנסה':'הוצאה')+'</p>').join('')||'אין עדיין תנועות';
+$('categoryList').innerHTML=data.categories.map(c=>'<p>• '+escapeHTML(c)+'</p>').join('');
+$('category').innerHTML=data.categories.map(c=>'<option>'+escapeHTML(c)+'</option>').join('');
+$('budgetInput').value=data.budget||'';
+}
+function escapeHTML(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function exportData(){
+let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+let a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='personal-budget-backup.json';a.click();URL.revokeObjectURL(a.href)
+}
+function restoreData(){
+let f=$('restoreFile').files[0];if(!f){alert('בחר קובץ גיבוי');return}
+let r=new FileReader();r.onload=()=>{try{let d=JSON.parse(r.result);if(!Array.isArray(d.transactions)||!Array.isArray(d.categories))throw Error();data=d;save();alert('הגיבוי שוחזר')}catch(e){alert('קובץ גיבוי לא תקין')}};r.readAsText(f)
+}
+$('month').value=new Date().toISOString().slice(0,7);
+$('month').addEventListener('change',render);
+$('date').value=new Date().toISOString().slice(0,10);
+render();
+</script>
+</body>
+</html>
